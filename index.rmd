@@ -1,0 +1,137 @@
+---
+title: "STAA-566: Data Vis"
+subtitle: "Assignment 1: ggplot2"
+author: "Penny Grant"
+date: "`r Sys.Date()`"
+header-includes:
+  - \setmainfont{Noto Sans}
+  - \setmonofont{Noto Sans Mono}
+  - \usepackage{physics}
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages
+
+```{r, message=FALSE}
+require(readr)
+require(tidyverse)
+require(ggthemes)
+require(dplyr)
+require(lubridate)
+require(ggrepel)
+require(viridis)
+```
+
+# Import Dataset
+
+Citation for Data used: 
+
+> North America Land Data Assimilation System (NLDAS) Daily Sunlight (insolation)
+for years 1979-2011 on CDC WONDER Online Database, released 2013. Accessed at <http://wonder.cdc.gov/NASA-INSOLAR.html>
+
+*Final column of data frame was edited in the text file as it had an exponent that proved to be problematic*
+
+I used "Import Dataset > From Text (readr)" to import my dataset - removing duplicate columns and formatting the `Month, Year Code` as a date.
+
+```{r, warning=FALSE}
+regional_sunlight <- read_delim("NLDAS Daily Sunlight By Region.txt",
+      delim = "\t",escape_double = FALSE,
+      col_types = cols(Notes = col_skip(),
+                       `Region Code`= col_skip(), `Month, Year`= col_skip(),
+                       `Month, Year Code`=col_date(format = "%Y/%m")),
+      trim_ws = TRUE)
+```
+
+Make changes to data frame to make it easier to work with, including:
+
+* Remove rows with na values - these are summary rows
+* Rename date column
+* Recode regions to exclude Census Region #
+
+```{r}
+regional_sunlight <- regional_sunlight %>% 
+  drop_na() %>% 
+  rename("YearMo" = "Month, Year Code") %>% 
+  mutate(Region = recode(Region,"Census Region 1: Northeast" = "Northeast",
+                         "Census Region 2: Midwest" = "Midwest",
+                         "Census Region 3: South" = "South",
+                         "Census Region 4: West" = "West"))
+```
+
+Create new data frame filtering out data from 2011 (last year available), to maintain original data frame.
+
+```{r}
+twenty_eleven <- regional_sunlight %>% 
+  filter(year(YearMo)==2011)
+```
+
+# Plot Data
+
+Start with mapping the data, grouping it by Region
+
+```{r}
+p_sun <- twenty_eleven %>% 
+  ggplot(mapping = aes(x = month(YearMo,label=TRUE),
+                       y = `Avg Daily Sunlight (KJ/m^2)`,
+                       group = Region)) +
+  geom_line(aes(col = `Region`))
+
+p_sun
+```
+
+Adjust the theme
+
+```{r}
+p_sun <- p_sun +
+  theme_bw(base_size = 14,base_family = "sans") +
+  theme(legend.position = "none")
+
+p_sun
+```
+
+Change axes, add descriptive labels & title
+
+```{r}
+p_sun <- p_sun +
+  labs(x="Month",y="Average Daily Sunlight \n (by heat density in KJ/m^2)",
+       title = "Average Daily Sunlight in 2011 by Region") +
+  scale_y_continuous(labels = scales::label_comma()) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+p_sun
+```
+
+Set up direct labeling, following the steps shown in class
+
+```{r}
+# find end of lines
+line_ends <- ggplot_build(p_sun)$data[[1]] %>% 
+  group_by(colour) %>% 
+  filter(x==max(x))
+
+# add region label
+line_ends$Region <- regional_sunlight %>% pull(Region) %>% 
+  unique() %>% 
+  as.character() %>% 
+  sort()
+```
+
+Finally, add the direct labels to the graph and change the color scale
+
+```{r}
+p_sun <- p_sun + ggrepel::geom_label_repel(data = line_ends,
+                          aes(x = line_ends$x, y = line_ends$y,
+                              label = Region, colour = Region),
+                          nudge_x = 1,
+                          label.size = NA,
+                          fill = alpha(c("white"),0)) +
+  scale_color_tableau()
+
+p_sun
+```
+
+
