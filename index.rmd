@@ -78,7 +78,7 @@ p_sun <- twenty_eleven %>%
   ggplot(mapping = aes(x = month(YearMo,label=TRUE),
                        y = `Avg Daily Sunlight (KJ/m^2)`,
                        group = Region)) +
-  geom_line(aes(col = `Region`))
+  geom_line(aes(col = `Region`),size=.75)
 
 p_sun
 ```
@@ -87,7 +87,7 @@ Adjust the theme
 
 ```{r}
 p_sun <- p_sun +
-  theme_bw(base_size = 14,base_family = "sans") +
+  theme_light(base_size = 14,base_family = "sans") +
   theme(legend.position = "none")
 
 p_sun
